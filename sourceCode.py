@@ -83,6 +83,15 @@ class output_field(QLineEdit):
                 self.setText((event.mimeData().urls()[0].toLocalFile()))
         else:
             event.ignore()
+            
+class button(QPushButton):
+    def __init__(self, label_text):
+        super().__init__()
+        self.setText(label_text)
+        self.setStyleSheet('''
+            font-size:15px;
+            width: 90px;
+            height: 35;''')
 
 # Application window
 class PDFApp(QWidget):
@@ -94,6 +103,105 @@ class PDFApp(QWidget):
         self.resize(1200, 500)
         self.ui()
         # self.saveButton.clicked.connect(self.populateFileName)
+        
+    
+    # Main ui/Layout of the window
+    def ui(self):
+        mainLayout = QVBoxLayout()
+        outputFolderRow = QHBoxLayout()
+        buttonLayout = QHBoxLayout()
+
+        self.outputFile = output_field()
+        outputFolderRow.addWidget(self.outputFile)
+
+        # Save button
+        self.saveButton = button('&Save to')
+        self.saveButton.clicked.connect(self.populateFileName)
+        outputFolderRow.addWidget(self.saveButton)
+
+        #listbox widget
+        self.listBoxWidget = ListWidget(self)
+
+        # This will delete the selected files
+        self.deleteButton = button("&Delete")
+        self.deleteButton.clicked.connect(self.delete)
+        # buttonLayout.addWidget(self.deleteButton)
+        buttonLayout.addWidget(self.deleteButton, 1, Qt.AlignRight)
+
+        # Used for merging of files
+        self.mergeButton = button("&Merge")
+        self.mergeButton.clicked.connect(self.mergeFile)
+        buttonLayout.addWidget(self.mergeButton)
+
+        # To reset the window
+        self.resetButton = button("&Reset")
+        self.resetButton.clicked.connect(self.reset)
+        buttonLayout.addWidget(self.resetButton)
+
+        # To close the window
+        self.closeButton = button("&Close")
+        self.closeButton.clicked.connect(QApplication.quit)
+        buttonLayout.addWidget(self.closeButton)
+
+
+        mainLayout.addLayout(outputFolderRow)
+        mainLayout.addWidget(self.listBoxWidget)
+        mainLayout.addLayout(buttonLayout)
+
+        self.setLayout(mainLayout)
+        
+    #     Deleting the items
+    def delete(self):
+        for item in self.listBoxWidget.selectedItems():
+            self.listBoxWidget.takeItem(self.listBoxWidget.row(item))
+
+#     Reset Button for clearing the screen
+    def reset(self):
+        self.listBoxWidget.clear()
+        self.outputFile.setText('')
+
+#     popup message
+    def messageDialogueBox(self, message):
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("PDF Manager")
+        dlg.setIcon(QMessageBox.Information)
+        dlg.setText(message)
+        dlg.show()
+
+#     file dialogue window for saving the file
+    def _saveFilePath(self):
+        saving_path, _ = QFileDialog.getSaveFileName(self, "Save PDF file", os.getcwd(), 'PDF File(*.pdf)')
+        return saving_path
+
+    def populateFileName(self):
+        path = self._saveFilePath()
+        if path:
+            self.outputFile.setText(path)
+
+#   Merging the pdf files along with raising exceptions
+    def mergeFile(self):
+
+        if not self.outputFile.text():
+            self.populateFileName()
+            return
+
+        if self.listBoxWidget.count()>0:
+            pdfMerger = PdfFileMerger()
+
+            try:
+                for i in range(self.listBoxWidget.count()):
+                    pdfMerger.append(self.listBoxWidget.item(i).text())
+
+                pdfMerger.write(self.outputFile.text())
+                pdfMerger.close()
+
+                self.listBoxWidget.clear()
+                self.messageDialogueBox("PDF Merge Complete.\nThankyou for using Application.")
+
+            except Exception as e:
+                self.messageDialogueBox(e)
+        else:
+            self.messageDialogueBox("No files found")
         
 
 if __name__ == '__main__':
